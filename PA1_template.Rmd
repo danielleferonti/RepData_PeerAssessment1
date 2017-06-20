@@ -1,25 +1,119 @@
 ---
-title: "Reproducible Research: Peer Assessment 1"
-output: 
-  html_document:
-    keep_md: true
+title: "Activity_Monitoring_RMd"
+author: "DFeron"
+date: "June 19, 2017"
+output:
+  pdf_document: default
+  html_document: default
 ---
 
+```{r Data Read & Clean, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+unzip("C:/R Training/RWorkingDir-DMF/CourseRA/Course5/Week2/repdata%2Fdata%2Factivity.zip",
+      exdir = "C:/R Training/RWorkingDir-DMF/CourseRA/Course5/Week2")
+Activity <- read.csv("C:/R Training/RWorkingDir-DMF/CourseRA/Course5/Week2/activity.csv", header= TRUE)
+Activity$date <- as.Date(Activity$date, format = "%Y-%m-%d")
+Activity$interval <- factor(Activity$interval)
+library(ggplot2)
+```
 
-## Loading and preprocessing the data
+## What is the mean total number of steps taken per day (ignore missing values)?
+```{r Mean Steps}
+totalSteps <- aggregate(list(Steps = Activity$steps), 
+                        by = list(Date = Activity$date), 
+                        FUN = "sum",
+                        na.rm= TRUE)
+Mean_Day <- ggplot(totalSteps,
+                   aes(x=Steps))+
+            geom_histogram(color = "#1F3552", fill = "#4271AE", binwidth = 1000)+
+            labs(y= "Frequency")+
+            labs(x= "Steps/Day")+
+  ggtitle("Steps/Day")
+print(Mean_Day)
+
+print(c("Mean",round(mean(totalSteps$Steps))))
+print(c("Median",round(median(totalSteps$Steps))))
+
+```
+
+##What is the average daily activity pattern?
+```{r Avg Steps}
+AvgSteps <- aggregate(list(Steps = Activity$steps), 
+                        by = list(interval = Activity$interval), 
+                        FUN = "mean",
+                        na.rm= TRUE)
+Avg_Day<- ggplot(AvgSteps,
+                 aes(x = interval, y= Steps, group = 1))+
+          geom_line()+
+          labs(y= "Steps")+
+          labs(x= "5-Min interval")+
+          ggtitle("Avg Steps/Day")
+print(Avg_Day)
+
+AvgSteps[AvgSteps$Steps==max(AvgSteps$Steps),]
+
+```
+
+##Imputing missing values
+```{r Missing Values}
+NAs<-sum(is.na(Activity$steps))
+print(c("The number of missing values is is",NAs))
+
+#Use daily mean to replace NAs
+NewActivity <- merge(Activity, AvgSteps, by = "interval", all.y= F)
+NewActivity$steps[is.na(NewActivity$steps)] <- as.integer(
+  round(NewActivity$Steps[is.na(NewActivity$steps)]))
+NewActCols<- names(Activity)
+NewActivity<- NewActivity[NewActCols]
+
+NewSteps <- aggregate(list(Steps = NewActivity$steps), 
+                        by = list(Date = NewActivity$date), 
+                        FUN = "sum",
+                        na.rm= FALSE)
+
+New_Mean_Day <- ggplot(NewSteps,
+                   aes(x=Steps))+
+  geom_histogram(color = "#1F3552", fill = "#4271AE", binwidth = 1000)+
+  labs(y= "Frequency")+
+  labs(x= "Steps/Day")+
+  ggtitle("Steps/Day")
+print(New_Mean_Day)
+
+print("By assigning the missing values to the daily mean, the histogram looks more normal, and the mean and median increase.")
+print(c("The mean is",round(mean(NewSteps$Steps))))
+print(c("The median is",round(median(NewSteps$Steps))))
+
+```
+##Are there differences in activity patterns between weekdays and weekends?
+```{r Weekend vs Weekday}
+NewActivity$Day <- as.factor(weekdays(NewActivity$date))
+NewActivity$Weekend <- ifelse(NewActivity$Day %in% c("Saturday", "Sunday"), TRUE, FALSE)
+Weekday <- NewActivity[!NewActivity$Weekend,]
+Weekend <- NewActivity[NewActivity$Weekend,]
+Mean_Wkdy <- aggregate(Weekday$steps,
+                       by= list(interval = Weekday$interval),
+                       FUN = "mean") 
+Mean_Wknd <- aggregate(Weekend$steps,
+                       by= list(interval = Weekend$interval),
+                       FUN = "mean") 
+colnames(Mean_Wkdy)<- c("interval", "avg_steps")
+colnames(Mean_Wknd)<- c("interval", "avg_steps")
+Mean_Wkdy$day <- "Weekday"
+Mean_Wknd$day <- "Weekend"
+ComboData <- rbind(Mean_Wkdy, Mean_Wknd)
+ComboData$day <- as.factor(ComboData$day)
+
+library(lattice)
+
+Wknd_vs_Wkday<- xyplot(avg_steps ~ interval | day,
+                       data = ComboData,
+                       layout = c(1,2),
+                       type = "l",
+                       ylab = "Avg Steps")
+print(Wknd_vs_Wkday)
+print("Yes there is a difference in steps between Weekend and Weekday.")
+
+```
 
 
 
-## What is mean total number of steps taken per day?
-
-
-
-## What is the average daily activity pattern?
-
-
-
-## Imputing missing values
-
-
-
-## Are there differences in activity patterns between weekdays and weekends?
